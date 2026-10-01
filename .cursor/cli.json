@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Write(**)",
+      "Shell(ls)",
+      "Shell(cat)",
+      "Shell(head)",
+      "Shell(tail)",
+      "Shell(wc)",
+      "Shell(grep)",
+      "Shell(rg)",
+      "Shell(find)",
+      "Shell(diff)",
+      "Shell(sort)",
+      "Shell(git)",
+      "Shell(pytest)",
+      "Shell(make)"
+    ],
+    "deny": [
+      "Read(**/.env*)",
+      "Write(.cursor/**)",
+      "Write(.git/**)",
+      "Shell(curl)",
+      "Shell(wget)",
+      "Shell(ssh)",
+      "Shell(scp)",
+      "Shell(rm)",
+      "Shell(sudo)",
+      "Shell(env)",
+      "Shell(printenv)",
+      "Shell(open)",
+      "Shell(nc)"
+    ]
+  }
+}

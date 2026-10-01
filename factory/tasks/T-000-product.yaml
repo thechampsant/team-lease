@@ -1,0 +1,13 @@
+id: T-000
+role: product
+title: PRD and acceptance criteria from the client's request
+depends_on: []
+acceptance: []
+files_allowed:
+  - factory/product/prd.md
+  - factory/product/acceptance.md
+  - factory/intake/glossary.md
+definition_of_done:
+  - every in-scope item maps to at least one AC in Given/When/Then form
+  - no AC uses a term missing from the glossary
+  - open questions for the client are listed, not guessed

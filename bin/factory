@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# This repo's factory command. The factory itself (its crew, prompts and checkpoints) is not in this repo:
+# it is the engine named in .factory-engine. This finds it on this machine and hands over.
+set -euo pipefail
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+field() { sed -n "s/^$1: *\([^ #]*\).*/\1/p" "$repo/.factory-engine"; }
+version="$(field version)"
+for home in "${FACTORY_HOME:-}" "$HOME/.factory/engine/$version" "$HOME/.factory/engine/current"; do
+  if [ -n "$home" ] && [ -x "$home/bin/factory" ]; then
+    FACTORY_REPO="$repo" FACTORY_ENGINE="$(cd "$home" && pwd)" exec "$home/bin/factory" "$@"
+  fi
+done
+echo "hold  The factory engine (version ${version:-unknown}) is not installed on this machine, so nothing ran." >&2
+echo "      Install it once: git clone $(field source) ~/.factory/engine/current (or set FACTORY_HOME to your copy)." >&2
+exit 2

@@ -1,0 +1,127 @@
+version: 1
+factory_version: 0.9.0   # the factory release this client was made from
+
+project:
+  name: team-lease
+  client: TeamLease
+
+defaults:
+  max_diff_lines: 400     # G4 size limit when a task sets none
+  max_attempts: 2         # failed runs per task and role before the factory escalates
+
+# The parts of the product, and the stack each is built in: a pack in
+# factory/stacks/ says how its tests, bug hunt and contract work. An API and
+# a web app in one repo, for example:
+#   components:
+#     api: { stack: python-api, path: . }
+#     web: { stack: ts-web, path: web }
+# A job picks its part with `component: web`; with one part it needs nothing.
+components:
+  app: { stack: python-api, path: . }
+
+# Which adapter (a script in adapters/) and model each crew member runs on.
+# To put the Builder on your own agent, change one line:
+#   developer:  { adapter: my-agent, model: <its model> }
+engines:
+  product:    { adapter: cursor, model: composer-2.5 }
+  architect:  { adapter: cursor, model: composer-2.5 }
+  techlead:   { adapter: cursor, model: composer-2.5 }
+  qa:         { adapter: cursor, model: composer-2.5 }
+  developer:  { adapter: cursor, model: composer-2.5 }
+  reviewer:   { adapter: cursor, model: cursor-grok-4.6-high }
+  designer:   { adapter: cursor, model: composer-2.5 }
+  sre:        { adapter: cursor, model: composer-2.5 }
+  writer:     { adapter: cursor, model: composer-2.5 }
+
+# How adapters/my-agent.sh starts your own coding agent. Fill this in once.
+# The agent runs in the job's worktree with its own sandbox and approvals; the
+# factory still checks every changed file afterwards, whatever the agent did.
+agents:
+  my-agent:
+    command: my-agent            # the program to start, on PATH (may include fixed words, e.g. "npx my-agent")
+    # Arguments, in order (the flags below are an example: use your agent's own).
+    # {model}, {prompt_file} and {workspace} are filled in.
+    # Put the agent's sandbox and approval flags here, so it runs without
+    # stopping to ask and cannot write outside the worktree. With no model set,
+    # "{model}" and the flag just before it are left out.
+    args: ["--sandbox", "workspace-write", "--approval", "never", "--model", "{model}"]
+    prompt: stdin                # stdin: the prompt file on standard input | pointer: a short
+                                 # last argument naming the file | none: args use {prompt_file}
+    trace: ".my-agent/trace/**/*.jsonl"   # its trace files: a glob in the worktree, or "~/..." in your
+                                          # home folder (only files changed during the run are taken)
+    cost_key: total_cost_usd     # optional: the number in the trace that is the run's cost in USD
+    pass_env: []                 # variables it needs from your shell, e.g. [MY_AGENT_API_KEY]. Never .env.
+
+  # Aider (https://aider.chat) runs almost any model: OpenAI, Anthropic, Gemini,
+  # DeepSeek, or a local one through Ollama. Put a crew member on it with
+  #   developer: { adapter: aider, model: deepseek/deepseek-chat }
+  # The model's name says whose API key it needs (factory doctor names the one
+  # missing); keys come from your shell or macOS Keychain, never from the repo.
+  aider:
+    command: aider
+    args: ["--model", "{model}", "--message-file", "{prompt_file}", "--yes-always",
+           "--no-auto-commits", "--no-dirty-commits", "--no-gitignore", "--no-suggest-shell-commands",
+           "--no-check-update", "--no-show-release-notes", "--no-show-model-warnings", "--no-analytics",
+           "--no-pretty", "--no-stream", "--no-fancy-input", "--no-detect-urls", "--no-restore-chat-history",
+           "--chat-history-file", ".aider-trace/chat.md", "--llm-history-file", ".aider-trace/llm.txt",
+           "--input-history-file", ".aider-trace/input.txt"]
+    prompt: none
+    provider_keys: true          # pass only the API key the model's provider needs
+    trace: [".aider-trace/*"]
+    scratch: [".aider.tags.cache*"]
+    cost_regex: '\$([0-9.]+) session'
+
+# Where agents run. none: as you, on this machine, in a throwaway copy of the
+# repo (the factory still checks every file they change afterwards). docker: in
+# a container that sees only that copy, with no home folder, SSH keys or git
+# login, and a network that reaches only the AI providers the crew uses, plus
+# allow_hosts. Set up once with: factory sandbox build (new clients use docker).
+# ephemeral: the docker sandbox on a GitHub Actions job's throwaway machine; only
+# the factory-run workflow gives it (factory run --cloud), and anywhere else it is refused.
+sandbox:
+  mode: docker
+  allow_hosts: []        # e.g. [registry.npmjs.org] if agents must install packages
+  allow_unsandboxed: false  # with mode none, no agent starts unless this is true: a person's
+                            # explicit yes to agents running as them (their SSH keys, git login, files)
+
+# Where Factory Studio starts crew runs: local (this machine) or github-actions
+# (the repo's factory-run workflow, so runs carry on with the laptop closed).
+# Change it with: factory cloud on | off
+cloud:
+  runner: local
+
+# Code only a person writes: logins, payments, migrations, access rules and
+# infrastructure (AGENTS.md, "What is never agent-owned"). Any agent change to
+# these is refused, locally and in CI, and no job may list them in its files.
+sensitive_paths:
+  - "**/auth/**"
+  - "**/login/**"
+  - "**/session*/**"
+  - "**/payment*/**"
+  - "**/billing/**"
+  - "**/migrations/**"
+  - "**/iam/**"
+  - "**/*.tf"
+
+rules:
+  parallel_tasks_max: 3   # agent runs allowed at the same time on this machine
+  fix_rounds: 1           # when a Builder's own tests fail (or a Tester's tests do not import), times it
+                          # may fix them within the same try, before anything is pushed. 0: check only
+  interview: required     # required: the plan's go-ahead waits until the interview's checklist
+                          # is answered (factory interview show). New clients start as required.
+  design_review: required # required: the architect go-ahead needs the five design-review answers
+                          # (factory approve architect --review FILE). New clients start as required.
+  budget_usd: null        # the project's AI spend cap in US dollars: no run starts once the runs
+                          # that report cost reach it (factory estimate). null: no cap.
+
+git:
+  base_branch: main       # agent branches start here and their PRs target it
+  remote: origin          # where branches are pushed; with no such remote, runs stay local
+  bot_name: factory-bot   # author of every commit the factory makes
+  bot_email: factory-bot@users.noreply.github.com
+
+gates:
+  g0:
+    product:    { evidence_prefix: [prd, product],     unlocks: [architect] }
+    architect:  { evidence_prefix: [architecture, architect], unlocks: [techlead, qa, developer, reviewer, designer, sre, writer] }
+    release:    { evidence_prefix: [release],          unlocks: [] }

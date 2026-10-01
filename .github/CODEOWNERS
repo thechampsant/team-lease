@@ -1,0 +1,25 @@
+# Every change needs the owner's approval before it can merge.
+# GitHub only enforces this once branch protection is applied to main
+# (see .github/branch-protection.json and README "Branch protection").
+*                               @thechampsant
+
+# The files that set the rules. Listed separately so a second reviewer can be
+# added for everything else without loosening these.
+/.github/                       @thechampsant
+/.cursor/                       @thechampsant
+/Makefile                       @thechampsant
+/bin/                           @thechampsant
+/adapters/                      @thechampsant
+/scripts/                       @thechampsant
+/AGENTS.md                      @thechampsant
+/factory/config.yaml            @thechampsant
+/factory/task.schema.json       @thechampsant
+/factory/TEMPLATE               @thechampsant
+/factory/roles/                 @thechampsant
+/factory/tasks/                 @thechampsant
+/factory/product/acceptance.md  @thechampsant
+/factory/intake/approvals/      @thechampsant
+/factory/intake/sources/        @thechampsant
+/factory/runs/                  @thechampsant
+/factory/learning/              @thechampsant
+/tests/gates/                   @thechampsant

@@ -1,0 +1,57 @@
+# The interview: questions the factory always asks before the Planner writes a
+# plan, so the plan never has to guess the basics. `factory interview` adds
+# questions an AI draws from this order; people answer both, and the answers
+# go into every crew member's prompt.
+#
+# id        stays fixed (answers refer to it)
+# question  what people see
+# why       why it matters, in one line
+# becomes   ac: a numbered "done means" line with a test; note: context for
+#           the plan; stack: which stack each part is built in
+# example   a sample answer, shown as a hint
+questions:
+  - id: users
+    question: Who will use this, and roughly how many people?
+    why: A tool for five staff and one for fifty thousand customers need different designs.
+    becomes: note
+    example: "About 40 recruiters at one client company; no public users."
+  - id: load
+    question: How much use at the busiest time, and how fast must it answer?
+    why: Speed and load become tested "done means" lines, not hopes.
+    becomes: ac
+    example: "Up to 200 searches a minute; results in under a second."
+  - id: data
+    question: How much data, and how fast does it grow?
+    why: A list of 500 rows and one of 5 million are built differently.
+    becomes: ac
+    example: "About 80,000 candidates now, 2,000 more a month."
+  - id: access
+    question: Who may see or change what? Is there a login, and roles?
+    why: Access rules decide the data model; logins themselves are written by a person, never an AI.
+    becomes: note
+    example: "Recruiters see only their company's candidates; admins can export."
+  - id: systems
+    question: Which other systems does it connect to?
+    why: Every connection can be slow, down or wrong, and each one needs a test for that.
+    becomes: note
+    example: "Reads resumes from the existing upload service; nothing else."
+  - id: never
+    question: What must never happen?
+    why: The worst outcomes become tests that must always pass.
+    becomes: ac
+    example: "Never show one company's candidates to another; never lose an upload."
+  - id: stack
+    question: What should it be built with, and where does it run (web, mobile app, API)?
+    why: Picks the stack pack for each part, so the checks know how to test it.
+    becomes: stack
+    example: "A web app (TypeScript, React) with a Python API behind it."
+  - id: hosting
+    question: Where will it be hosted, and who deploys it?
+    why: The factory does not deploy; this tells the plan what the release engineer needs.
+    becomes: note
+    example: "Our AWS account; our own engineer deploys."
+  - id: deadline
+    question: When is it needed, and what can wait for a later version?
+    why: Fixes what is in scope now, and what is explicitly out.
+    becomes: note
+    example: "Search by the 15th; export can wait a month."

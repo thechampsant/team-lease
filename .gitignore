@@ -1,0 +1,6 @@
+.env
+.factory-prompt
+.factory/
+node_modules/
+__pycache__/
+.venv/

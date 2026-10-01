@@ -1,0 +1,85 @@
+name: factory-run
+run-name: "factory ${{ inputs.ready && 'run --ready' || format('run {0} {1}', inputs.role, inputs.task) }}"
+
+# Crew runs in the cloud: `factory run --cloud ROLE JOB` (or --ready) starts this workflow, and
+# Factory Studio follows it. Each crew member works in the factory's Docker sandbox on this job's
+# throwaway machine: it sees only its copy of the repo and the one API key its model needs, and its
+# network reaches only the AI providers. The push token never goes in the repo's git settings (the
+# checkout keeps none), so an agent cannot read it; only the factory's own push steps use it.
+#
+# A PERSON SETS UP, ONCE, and reviews:
+#   - secrets: FACTORY_ENGINE_TOKEN (read the engine image) and the API keys of the runners this
+#     repo's crew uses (CURSOR_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, ...). Only their names
+#     are here; missing ones are simply empty.
+#   - FACTORY_BOT_TOKEN: a GitHub App or fine-grained token for the crew's pushes and PRs. GitHub
+#     does not start other workflows (the G1-G4 checkpoints) for PRs opened with the job's own
+#     token, so without this one a person must re-run the checks on each crew PR.
+#   - permissions below: the crew pushes its own branches and opens PRs, so the job needs to
+#     write contents and pull requests. Branch protection still stops anything merging unchecked.
+on:
+  workflow_dispatch:
+    inputs:
+      role: { description: "crew member (developer, qa, ...)", required: false, default: "" }
+      task: { description: "job id, like T-004", required: false, default: "" }
+      ready: { description: "every job that is ready, several at once", type: boolean, default: false }
+      max: { description: "with ready: at most this many at once", required: false, default: "" }
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# One cloud run per job at a time, and one --ready sweep at a time; a second one waits.
+concurrency:
+  group: factory-run-${{ inputs.ready && 'ready' || format('{0}-{1}', inputs.task, inputs.role) }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Crew run
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      # For the factory's own git pushes and PRs, through gh's credential helper; never written to the repo.
+      GH_TOKEN: ${{ secrets.FACTORY_BOT_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - name: Get the factory engine
+        env: { TOKEN: "${{ secrets.FACTORY_ENGINE_TOKEN }}" }
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          id="$(docker create ghcr.io/YOUR-ORG/factory-engine:0.9.0)"
+          docker cp "$id:/engine" "$RUNNER_TEMP/engine" && docker rm "$id" >/dev/null
+          pip install -q -r "$RUNNER_TEMP/engine/requirements-factory.txt"
+          echo "FACTORY_ENGINE=$RUNNER_TEMP/engine" >> "$GITHUB_ENV"
+          echo "FACTORY_REPO=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Get the crew's earlier tries, and build the sandbox
+        run: |
+          gh auth setup-git
+          git fetch -q origin '+refs/heads/factory/*:refs/heads/factory/*' || true
+          "$FACTORY_ENGINE/bin/factory" _cloud setup
+      - name: Run
+        env:
+          ROLE: ${{ inputs.role }}
+          TASK: ${{ inputs.task }}
+          READY: ${{ inputs.ready }}
+          MAX: ${{ inputs.max }}
+          FACTORY_SANDBOX: ephemeral
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ "$READY" = "true" ]; then
+            "$FACTORY_ENGINE/bin/factory" run --ready ${MAX:+--max "$MAX"}
+          else
+            "$FACTORY_ENGINE/bin/factory" run "$ROLE" "$TASK"
+          fi
+      - name: Keep every try's record
+        # A try that failed is recorded only on its branch; pushing it keeps the count of tries honest.
+        if: always()
+        run: |
+          "$FACTORY_ENGINE/bin/factory" _cloud keep

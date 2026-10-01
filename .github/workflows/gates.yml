@@ -1,0 +1,135 @@
+name: gates
+
+on: [pull_request]
+
+# A thin client repo carries no copy of the factory. Each checkpoint first copies the factory engine out of
+# its private image (pulled with the FACTORY_ENGINE_TOKEN secret: a read-only package token a person adds to
+# the repo or organisation), then runs it on this repo. The check names are the ones branch protection
+# requires, so they must not change.
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  g1-contract:
+    name: G1 Blueprint check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - name: Get the factory engine
+        env: { TOKEN: "${{ secrets.FACTORY_ENGINE_TOKEN }}" }
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          id="$(docker create ghcr.io/YOUR-ORG/factory-engine:0.9.0)"
+          docker cp "$id:/engine" "$RUNNER_TEMP/engine" && docker rm "$id" >/dev/null
+          pip install -q -r "$RUNNER_TEMP/engine/requirements-factory.txt"
+          echo "FACTORY_ENGINE=$RUNNER_TEMP/engine" >> "$GITHUB_ENV"
+          echo "FACTORY_REPO=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - run: |
+          "$FACTORY_ENGINE/bin/factory" _gate g1
+
+  g2-tests:
+    name: G2 Test drive
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - name: Get the factory engine
+        env: { TOKEN: "${{ secrets.FACTORY_ENGINE_TOKEN }}" }
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          id="$(docker create ghcr.io/YOUR-ORG/factory-engine:0.9.0)"
+          docker cp "$id:/engine" "$RUNNER_TEMP/engine" && docker rm "$id" >/dev/null
+          pip install -q -r "$RUNNER_TEMP/engine/requirements-factory.txt"
+          echo "FACTORY_ENGINE=$RUNNER_TEMP/engine" >> "$GITHUB_ENV"
+          echo "FACTORY_REPO=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - env: { BASE_REF: "${{ github.base_ref }}", HEAD_REF: "${{ github.head_ref }}" }
+        run: |
+          "$FACTORY_ENGINE/bin/factory" _gate g2 --base "origin/$BASE_REF" --branch "$HEAD_REF"
+
+  g3-static:
+    name: G3 Security sweep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0 }
+      - name: Secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.24.3
+      - name: SAST
+        run: >-
+          docker run --rm -v "$PWD:/src"
+          semgrep/semgrep:1.178.0@sha256:32e459968daabe7ab86968184a29109b9564aa00392401156f9788452b42786b
+          semgrep scan --config auto --error
+      - name: Dependency and licence scan
+        run: >-
+          docker run --rm -v "$PWD:/src"
+          aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+          fs --scanners vuln,license --exit-code 1 /src
+
+  g4-review:
+    name: G4 Final inspection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - name: Get the factory engine
+        env: { TOKEN: "${{ secrets.FACTORY_ENGINE_TOKEN }}" }
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          id="$(docker create ghcr.io/YOUR-ORG/factory-engine:0.9.0)"
+          docker cp "$id:/engine" "$RUNNER_TEMP/engine" && docker rm "$id" >/dev/null
+          pip install -q -r "$RUNNER_TEMP/engine/requirements-factory.txt"
+          echo "FACTORY_ENGINE=$RUNNER_TEMP/engine" >> "$GITHUB_ENV"
+          echo "FACTORY_REPO=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - env: { BASE_REF: "${{ github.base_ref }}", HEAD_REF: "${{ github.head_ref }}" }
+        run: |
+          "$FACTORY_ENGINE/bin/factory" _gate g4 --base "origin/$BASE_REF" --branch "$HEAD_REF"
+
+  g2-mutation:
+    name: G2 Test drive (bug hunt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - name: Get the factory engine
+        env: { TOKEN: "${{ secrets.FACTORY_ENGINE_TOKEN }}" }
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          id="$(docker create ghcr.io/YOUR-ORG/factory-engine:0.9.0)"
+          docker cp "$id:/engine" "$RUNNER_TEMP/engine" && docker rm "$id" >/dev/null
+          pip install -q -r "$RUNNER_TEMP/engine/requirements-factory.txt"
+          echo "FACTORY_ENGINE=$RUNNER_TEMP/engine" >> "$GITHUB_ENV"
+          echo "FACTORY_REPO=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - env: { BASE_REF: "${{ github.base_ref }}" }
+        run: |
+          "$FACTORY_ENGINE/bin/factory" _gate mutation --base "origin/$BASE_REF"
+
+  gates-selftest:
+    name: Checkpoint self-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - name: Get the factory engine
+        env: { TOKEN: "${{ secrets.FACTORY_ENGINE_TOKEN }}" }
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          id="$(docker create ghcr.io/YOUR-ORG/factory-engine:0.9.0)"
+          docker cp "$id:/engine" "$RUNNER_TEMP/engine" && docker rm "$id" >/dev/null
+          pip install -q -r "$RUNNER_TEMP/engine/requirements-factory.txt"
+          echo "FACTORY_ENGINE=$RUNNER_TEMP/engine" >> "$GITHUB_ENV"
+          echo "FACTORY_REPO=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - run: |
+          "$FACTORY_ENGINE/bin/factory" _gate selftest

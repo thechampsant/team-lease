@@ -1,0 +1,15 @@
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["G1 Blueprint check", "G2 Test drive", "G3 Security sweep", "G4 Final inspection", "G2 Test drive (bug hunt)", "Checkpoint self-tests"]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1,
+    "require_code_owner_reviews": true,
+    "dismiss_stale_reviews": true
+  },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}

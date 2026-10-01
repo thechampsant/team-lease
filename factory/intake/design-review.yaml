@@ -1,0 +1,21 @@
+# The design review: five questions a person answers before giving the
+# architect go-ahead, so the design is checked on what breaks software at
+# scale, not only on whether it is well-formed. `factory approve architect
+# --review FILE` takes the answers under '## <id>' headings; every later crew
+# member's prompt includes them. Required when rules.design_review: required.
+questions:
+  - id: data
+    question: How is the data shaped, and how is each client's data kept apart?
+    example: "Candidates belong to one company; every query filters by company_id."
+  - id: scale
+    question: What load and data size is it built for, and what gives first when it grows?
+    example: "80k candidates, 200 searches a minute; search gets an index before anything else."
+  - id: failure
+    question: What happens when something it depends on is slow, down or wrong?
+    example: "Upload service down: queue and retry; search keeps working on what it has."
+  - id: monitor
+    question: What should be watched once it is live, and who hears when it breaks?
+    example: "Search time and error rate; our on-call engineer is paged over 1s or 1% errors."
+  - id: out
+    question: What is deliberately not in this design?
+    example: "No fuzzy name matching; no cross-company search."

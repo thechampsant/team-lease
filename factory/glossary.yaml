@@ -1,0 +1,88 @@
+# The factory's own words: the single source for friendly names.
+#
+# Display names only. Internal IDs (G0-G6, T-###), role keys (developer, qa,
+# ...), command names and file names never change, so scripts and CI keep
+# working. `factory validate` checks this file is complete, and a gate
+# self-test checks that the CI check names and branch protection match it.
+#
+# The client's own terms are a different file: factory/intake/glossary.md.
+
+checkpoints:
+  G0: { name: Green light,        means: a human said go }
+  G1: { name: Blueprint check,    means: the plan is well-formed }
+  G2: { name: Test drive,         means: tests exist and pass }
+  G3: { name: Security sweep,     means: "no secrets, risky code or risky packages" }
+  G4: { name: Final inspection,   means: "size limit, keep-out zones and a second-opinion review" }
+  G5: { name: Dress rehearsal,    means: it works on a preview }
+  G6: { name: Go-live sign-off,   means: a release sign-off and an undo plan }
+
+# Role keys are the file names in factory/roles/ and the engines in config.yaml.
+crew:
+  product:   { name: Planner,     does: turns the order into a plan and acceptance criteria }
+  architect: { name: Blueprinter, does: "draws the contract, data model and decisions" }
+  techlead:  { name: Foreman,     does: splits the blueprint into jobs }
+  designer:  { name: Designer,    does: "specifies screens, states and tokens" }
+  qa:        { name: Tester,      does: writes the failing tests first }
+  developer: { name: Builder,     does: writes the code that makes the tests pass }
+  reviewer:  { name: Inspector,   does: gives a second-opinion review on a different model }
+  sre:       { name: Shipper,     does: "gets it live safely, with an undo plan" }
+  writer:    { name: Scribe,      does: writes the runbooks and the handover document }
+
+# Everyday words. The key is the internal word, the value is what people see.
+words:
+  task: Job
+  client request: Order
+  escalation: Raise a hand
+  protected paths: Keep-out zones
+  diff cap: Size limit
+  approval: Sign-off
+
+# Plain language, for people who have never worked in software delivery.
+# Factory Studio shows these by default and keeps the names above (and the
+# G-numbers) under "Factory words" in its settings. The command line, CI and
+# the role files keep the names above. Anything left out falls back to them.
+plain:
+  checkpoints:
+    G0: Your go-ahead
+    G1: Plan check
+    G2: Test check
+    G3: Security scan
+    G4: Final review
+    G5: Preview
+    G6: Launch approval
+  crew:
+    architect: Architect
+    techlead: Team lead
+    developer: Developer
+    reviewer: Reviewer
+    sre: Release engineer
+    writer: Writer
+  words:
+    task: Task
+    client request: Request
+    escalation: Question
+    protected paths: Protected files
+    approval: Approval
+    # Words the factory never needed a friendly name for, because only
+    # engineers saw them.
+    pull request: Review page
+    merge: Accept
+    ci: Automatic checks
+    branch: Draft
+    base branch: Approved version
+    diff: Changes
+    run: Work session
+    trace: Work log
+    change request: Change
+
+# The check names GitHub shows on every PR, by job ID in
+# .github/workflows/gates.yml. Each starts with its checkpoint ID, so tools
+# can still tell the checks apart; .github/branch-protection.json requires
+# exactly these.
+ci_checks:
+  g1-contract:    G1 Blueprint check
+  g2-tests:       G2 Test drive
+  g2-mutation:    G2 Test drive (bug hunt)
+  g3-static:      G3 Security sweep
+  g4-review:      G4 Final inspection
+  gates-selftest: Checkpoint self-tests
